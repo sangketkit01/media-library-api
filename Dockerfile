@@ -12,7 +12,6 @@ RUN go build -o app cmd/api/*.go
 
 # -----------------------------------------------------
 FROM alpine:3.22
-WORKDIR /app
 COPY --from=builder /app/app .
 COPY --from=builder /app/.env.production .
 

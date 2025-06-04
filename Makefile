@@ -30,4 +30,10 @@ sqlc:
 	--grpc-gateway_out=pb --grpc-gateway_opt=paths=source_relative \
 	proto/*.proto
 
-.PHONY: createdb dropdb migrateup migratedown new_migration server sqlc
+build:
+	docker compose up --build -d
+
+down:
+	docker compose down
+
+.PHONY: createdb dropdb migrateup migratedown new_migration server sqlc build down

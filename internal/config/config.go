@@ -4,6 +4,8 @@ import "github.com/spf13/viper"
 
 type Config struct {
 	Environment string `mapstructure:"ENVIRONMENT"`
+	DatabaseUrl string `mapstructure:"DATABASE_URL"`
+	Secretkey string `mapstructure:"SECRETKEY"`
 }
 
 func NewConfig(path, env string) (*Config, error) {

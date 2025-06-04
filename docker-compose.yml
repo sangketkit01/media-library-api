@@ -22,3 +22,18 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: media_library
+    volumes:
+      - ./db-data/postgres/:/var/lib/postgresql/data
+  
+  migrator:
+    image: migrate/migrate
+    volumes:
+      - ./db-data/migrator/:/migrations
+    command: [
+      "-path", "migrations",
+      "-database", "postgres://root:secret@postgres:5432/media_library?sslmode=disable",
+      "up"
+    ]
+
+    depends_on:
+      - postgres
