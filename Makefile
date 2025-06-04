@@ -36,4 +36,7 @@ build:
 down:
 	docker compose down
 
-.PHONY: createdb dropdb migrateup migratedown new_migration server sqlc build down
+tidy:
+	go mod tidy
+
+.PHONY: createdb dropdb migrateup migratedown new_migration server sqlc build down tidy

@@ -12,30 +12,32 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/sangketkit01/media-library-api/internal/config"
 	db "github.com/sangketkit01/media-library-api/internal/db/sqlc"
+	"github.com/sangketkit01/media-library-api/internal/token"
 )
 
-const(
+const (
 	webPort = "8099"
 )
 
 type App struct {
-	store db.Store
-	router *fiber.App
-	config *config.Config
+	store      db.Store
+	router     *fiber.App
+	config     *config.Config
+	tokenMaker token.Maker
 }
 
-func init(){
-	if err := godotenv.Load("../../.env.local") ; err != nil{
+func init() {
+	if err := godotenv.Load("../../.env.local"); err != nil {
 
 		log.Println("failed to load .env.local. Try to load .env.production...")
 
-		if err := godotenv.Load("../../.env.production") ;  err != nil{
+		if err := godotenv.Load("../../.env.production"); err != nil {
 			log.Println("failed to load .env.production")
-		}else{
+		} else {
 			log.Println("Success Loading .env.production")
 		}
 
-	}else{
+	} else {
 		log.Println("Succeed Loading .env.local")
 	}
 }
@@ -49,22 +51,22 @@ func main() {
 	fmt.Println(env)
 
 	config, err := config.NewConfig("../../", env)
-	if err != nil{
+	if err != nil {
 		log.Fatalln(err)
 	}
 
 	fmt.Println("environment:", config.Environment)
 	fmt.Println(config)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	database, err := pgx.Connect(ctx, config.DatabaseUrl)
-	if err != nil{
+	if err != nil {
 		log.Fatalln(err)
 	}
 
-	if err := database.Ping(ctx) ; err != nil{
+	if err := database.Ping(ctx); err != nil {
 		log.Fatalln(err)
 	}
 
@@ -72,11 +74,17 @@ func main() {
 
 	store := db.NewStore(database)
 
-	app := App{
-		config: config,
-		store: store,
+	tokenMaker, err := token.NewPasetoMaker(config.Secretkey)
+	if err != nil {
+		log.Fatalln(tokenMaker)
 	}
-	
+
+	app := App{
+		config:     config,
+		store:      store,
+		tokenMaker: tokenMaker,
+	}
+
 	app.router = app.routes()
 
 	app.router.Listen(fmt.Sprintf(":%s", webPort))
