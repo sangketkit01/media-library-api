@@ -1,11 +1,13 @@
 package middleware
 
 import (
+	"errors"
 	"log"
 	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/sangketkit01/media-library-api/internal/token"
 )
 
 const(
@@ -26,11 +28,16 @@ func (m *Middleware)AuthMiddleware() fiber.Handler{
 			return fiber.NewError(fiber.StatusBadRequest, "invalid authorization header format.")
 		}
 
-		token := parts[1]
-		payload, err := m.tokenMaker.VerifyToken(token)
-		if err != nil{
-			return fiber.NewError(fiber.StatusBadRequest, "invalid token.")
+		accessToken := parts[1]
+		payload, err := m.tokenMaker.VerifyToken(accessToken)
+		if err != nil {
+			if errors.Is(err, token.ErrExpiredToken) {
+				return fiber.NewError(fiber.StatusUnauthorized, "token expired")
+			}
+		
+			return fiber.NewError(fiber.StatusUnauthorized, "invalid token")
 		}
+		
 
 		c.Locals(payloadHeader, payload)
 
@@ -38,15 +45,16 @@ func (m *Middleware)AuthMiddleware() fiber.Handler{
 	}
 }
 
-func (m *Middleware) LoggerMiddleware() fiber.Handler{
-	return func(c *fiber.Ctx) error{
+func (m *Middleware) LoggerMiddleware() fiber.Handler {
+	return func(c *fiber.Ctx) error {
 		start := time.Now()
 
 		err := c.Next()
 
 		duration := time.Since(start)
+		status := c.Response().StatusCode()
 
-		log.Printf("[%s] %s - %v\n", c.Method(), c.Path(), duration)
+		log.Printf("[%d] %s %s - %v\n", status, c.Method(), c.Path(), duration)
 
 		return err
 	}

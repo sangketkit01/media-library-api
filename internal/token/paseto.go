@@ -10,7 +10,7 @@ import (
 )
 
 type Maker interface {
-	CreateToken(id uuid.UUID, duration time.Duration) (string, *Payload, error)
+	CreateToken(id uuid.UUID, sessionID uuid.UUID,duration time.Duration) (string, *Payload, error)
 	VerifyToken(token string) (*Payload, error)
 }
 
@@ -30,8 +30,8 @@ func NewPasetoMaker(secretKey string) (Maker, error){
 	}, nil
 }
 
-func (maker *PasetoMaker) CreateToken(id uuid.UUID, duration time.Duration) (string, *Payload, error){
-	payload, err := NewPayload(id, duration)
+func (maker *PasetoMaker) CreateToken(id uuid.UUID, sessionID uuid.UUID,duration time.Duration) (string, *Payload, error){
+	payload, err := NewPayload(id, sessionID, duration)
 	if err != nil{
 		return "", nil, err
 	}

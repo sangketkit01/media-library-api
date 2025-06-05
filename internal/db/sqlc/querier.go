@@ -12,14 +12,18 @@ import (
 
 type Querier interface {
 	AssignMediaToGroup(ctx context.Context, arg AssignMediaToGroupParams) error
+	BlockSessionByID(ctx context.Context, id pgtype.UUID) error
 	CountMediaSizeByUser(ctx context.Context, userID pgtype.UUID) (interface{}, error)
 	CreateMediaFile(ctx context.Context, arg CreateMediaFileParams) (MediaFile, error)
 	CreateMediaGroup(ctx context.Context, arg CreateMediaGroupParams) (MediaGroup, error)
+	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	DeleteMediaFile(ctx context.Context, id pgtype.UUID) error
 	DeleteMediaGroup(ctx context.Context, id pgtype.UUID) error
+	DeleteSession(ctx context.Context, id pgtype.UUID) error
 	GetGroupByID(ctx context.Context, id pgtype.UUID) (MediaGroup, error)
 	GetMediaFileByID(ctx context.Context, id pgtype.UUID) (MediaFile, error)
+	GetSession(ctx context.Context, id pgtype.UUID) (Session, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 	ListGroupsByUser(ctx context.Context, userID pgtype.UUID) ([]MediaGroup, error)

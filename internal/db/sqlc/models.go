@@ -25,6 +25,17 @@ type MediaGroup struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type Session struct {
+	ID           pgtype.UUID        `json:"id"`
+	UserID       pgtype.UUID        `json:"user_id"`
+	RefreshToken string             `json:"refresh_token"`
+	UserAgent    pgtype.Text        `json:"user_agent"`
+	ClientIp     pgtype.Text        `json:"client_ip"`
+	IsBlocked    pgtype.Bool        `json:"is_blocked"`
+	ExpiresAt    pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
 type User struct {
 	ID        pgtype.UUID        `json:"id"`
 	Email     string             `json:"email"`

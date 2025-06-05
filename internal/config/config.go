@@ -1,11 +1,17 @@
 package config
 
-import "github.com/spf13/viper"
+import (
+	"time"
+
+	"github.com/spf13/viper"
+)
 
 type Config struct {
-	Environment string `mapstructure:"ENVIRONMENT"`
-	DatabaseUrl string `mapstructure:"DATABASE_URL"`
-	Secretkey string `mapstructure:"SECRETKEY"`
+	Environment   string        `mapstructure:"ENVIRONMENT"`
+	DatabaseUrl   string        `mapstructure:"DATABASE_URL"`
+	Secretkey     string        `mapstructure:"SECRETKEY"`
+	AccessTokenDuration time.Duration `mapstructure:"ACCESS_TOKEN_DURATION"`
+	RefreshTokenDuration time.Duration `mapstructure:"REFRESH_TOKEN_DURATION"`
 }
 
 func NewConfig(path, env string) (*Config, error) {

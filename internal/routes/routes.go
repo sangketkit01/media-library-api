@@ -26,8 +26,13 @@ func NewRoute(middleware *middleware.Middleware, handler *handlers.Handler) *Rou
 	})
 
 	router.Post("/create-user", handler.CreateUser)
+	router.Post("/login-user", handler.LoginUser)
+	router.Post("/refresh-token", handler.RefreshToken)
+	
 
-	_ = router.Use(middleware.AuthMiddleware())
+	authRouter := router.Use(middleware.AuthMiddleware())
+	authRouter.Get("/user", handler.GetCurrentUser)
+	authRouter.Get("/logout", handler.LogoutUser)
 
 	return &Route{
 		App: router,

@@ -61,7 +61,7 @@ func main() {
 
 	middleware := middleware.NewMiddleware(tokenMaker)
 	
-	handler, err := handlers.NewHandler(config)
+	handler, err := handlers.NewHandler(config, tokenMaker)
 	if err != nil {
 		log.Panic(err)
 	}
