@@ -1,17 +1,15 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"os"
-	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/jackc/pgx/v5"
 	"github.com/joho/godotenv"
 	"github.com/sangketkit01/media-library-api/internal/config"
-	db "github.com/sangketkit01/media-library-api/internal/db/sqlc"
+	"github.com/sangketkit01/media-library-api/internal/handlers"
+	"github.com/sangketkit01/media-library-api/internal/middleware"
+	"github.com/sangketkit01/media-library-api/internal/routes"
 	"github.com/sangketkit01/media-library-api/internal/token"
 )
 
@@ -20,10 +18,10 @@ const (
 )
 
 type App struct {
-	store      db.Store
-	router     *fiber.App
+	handler    *handlers.Handler
 	config     *config.Config
 	tokenMaker token.Maker
+	router     *routes.Route
 }
 
 func init() {
@@ -48,44 +46,38 @@ func main() {
 		env = "local"
 	}
 
-	fmt.Println(env)
 
 	config, err := config.NewConfig("../../", env)
 	if err != nil {
-		log.Fatalln(err)
+		log.Panic(err)
 	}
 
 	fmt.Println("environment:", config.Environment)
-	fmt.Println(config)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	database, err := pgx.Connect(ctx, config.DatabaseUrl)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	if err := database.Ping(ctx); err != nil {
-		log.Fatalln(err)
-	}
-
-	log.Println("Sucess connected to database")
-
-	store := db.NewStore(database)
 
 	tokenMaker, err := token.NewPasetoMaker(config.Secretkey)
 	if err != nil {
-		log.Fatalln(tokenMaker)
+		log.Panic(tokenMaker)
 	}
+
+	middleware := middleware.NewMiddleware(tokenMaker)
+	
+	handler, err := handlers.NewHandler(config)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	router := routes.NewRoute(middleware, handler)
+
 
 	app := App{
 		config:     config,
-		store:      store,
 		tokenMaker: tokenMaker,
+		handler:    handler,
+		router:     router,
 	}
 
-	app.router = app.routes()
-
-	app.router.Listen(fmt.Sprintf(":%s", webPort))
+	err = app.router.App.Listen(fmt.Sprintf(":%s", webPort))
+	if err != nil{
+		log.Panic(err)
+	}
 }

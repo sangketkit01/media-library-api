@@ -39,4 +39,7 @@ down:
 tidy:
 	go mod tidy
 
-.PHONY: createdb dropdb migrateup migratedown new_migration server sqlc build down tidy
+build_app:
+	cd cmd/api && bash -c "time go build -o ../../app main.go"
+
+.PHONY: createdb dropdb migrateup migratedown new_migration server sqlc build down tidy compile_time
