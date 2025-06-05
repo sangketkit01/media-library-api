@@ -19,7 +19,7 @@ CREATE TABLE media_files (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     group_id UUID REFERENCES media_groups(id) ON DELETE SET NULL,
     filename TEXT NOT NULL,
-    file_type TEXT NOT NULL CHECK (file_type IN ('IMAGE', 'VIDEO')),
+    file_type TEXT NOT NULL,
     size BIGINT NOT NULL,
     uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

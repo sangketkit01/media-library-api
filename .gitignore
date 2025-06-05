@@ -1,3 +1,4 @@
 .env.local
 .env.production
 db-data
+uploads

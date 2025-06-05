@@ -34,6 +34,10 @@ func NewRoute(middleware *middleware.Middleware, handler *handlers.Handler) *Rou
 	authRouter.Get("/user", handler.GetCurrentUser)
 	authRouter.Get("/logout", handler.LogoutUser)
 
+	authRouter.Post("/media/upload", handler.UploadFile)
+	authRouter.Post("/groups", handler.CreateGroup)
+	authRouter.Patch("/media/:id/group/:group_id", handler.AssignMediaToGroup)
+
 	return &Route{
 		App: router,
 		Middleware: middleware,
