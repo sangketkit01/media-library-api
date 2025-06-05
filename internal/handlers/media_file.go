@@ -143,3 +143,117 @@ func (h *Handler) AssignMediaToGroup(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{"message": "Assign media to a group successfully."})
 }
+
+func (h *Handler) GetCurrentUserMedia(c *fiber.Ctx) error {
+	p := c.Locals("payload")
+	payload, ok := p.(*token.Payload)
+	if !ok {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid payload")
+	}
+
+	user, err := h.Store.GetUserByID(c.Context(), pgtype.UUID{
+		Bytes: payload.ID,
+		Valid: true,
+	})
+
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return fiber.NewError(fiber.StatusNotFound, "user not found")
+		}
+
+		log.Println(util.RouteCustomError(err, c.Path()))
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to retreive user data.")
+	}
+
+	groupQuery := c.Query("group_id")
+	if groupQuery != "" {
+		groupID, err := uuid.Parse(groupQuery)
+		if err != nil {
+			log.Println(util.RouteCustomError(err, c.Path()))
+			return fiber.NewError(fiber.StatusInternalServerError, "invalid group id.")
+		}
+
+		medias, err := h.Store.ListMediaByGroup(c.Context(), db.ListMediaByGroupParams{
+			UserID: pgtype.UUID{
+				Bytes: user.ID.Bytes,
+				Valid: true,
+			},
+
+			GroupID: pgtype.UUID{
+				Bytes: groupID,
+				Valid: true,
+			},
+		})
+
+		if err != nil {
+			log.Println(util.RouteCustomError(err, c.Path()))
+			return fiber.NewError(fiber.StatusInternalServerError, "failed to retreive media data.")
+		}
+
+		return c.JSON(medias)
+	}
+
+	medias, err := h.Store.ListMediaByUser(c.Context(), pgtype.UUID{
+		Bytes: user.ID.Bytes,
+		Valid: true,
+	})
+
+	if err != nil {
+		log.Println(util.RouteCustomError(err, c.Path()))
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to retreive media data.")
+	}
+
+	return c.JSON(medias)
+}
+
+func (h *Handler) DownloadMedia(c *fiber.Ctx) error {
+	p := c.Locals("payload")
+	payload, ok := p.(*token.Payload)
+	if !ok {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid payload")
+	}
+
+	user, err := h.Store.GetUserByID(c.Context(), pgtype.UUID{
+		Bytes: payload.ID,
+		Valid: true,
+	})
+
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return fiber.NewError(fiber.StatusNotFound, "user not found")
+		}
+
+		log.Println(util.RouteCustomError(err, c.Path()))
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to retreive user data.")
+	}
+
+	mediaID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid media id")
+	}
+
+	media, err := h.Store.GetMediaFileByID(c.Context(), pgtype.UUID{
+		Bytes: mediaID,
+		Valid: true,
+	})
+
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return fiber.NewError(fiber.StatusNotFound, "media not found")
+		}
+
+		log.Println(util.RouteCustomError(err, c.Path()))
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to retreive media.")
+	}
+
+	if media.UserID != user.ID{
+		return fiber.NewError(fiber.StatusForbidden, "You are not allowed to download other's file")
+	}
+
+	filepath := filepath.Join("../../uploads", media.UserID.String(), media.Filename)
+	log.Println("file path =", filepath)
+	if err := c.Download(filepath); err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to download media file")
+	}
+	return nil
+}
