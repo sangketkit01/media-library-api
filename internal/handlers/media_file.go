@@ -40,7 +40,7 @@ func (h *Handler) UploadFile(c *fiber.Ctx) error {
 		if err == pgx.ErrNoRows {
 			return fiber.NewError(fiber.StatusNotFound, "user not found")
 		}
-		log.Println(util.RouteCustomError(err, c.Path()))
+		util.RouteCustomError(err, c.Path())
 		return fiber.NewError(fiber.StatusInternalServerError, "failed to retrieve user")
 	}
 
@@ -143,7 +143,7 @@ func (h *Handler) AssignMediaToGroup(c *fiber.Ctx) error {
 			return fiber.NewError(fiber.StatusNotFound, "user not found")
 		}
 
-		log.Println(util.RouteCustomError(err, c.Path()))
+		util.RouteCustomError(err, c.Path())
 		return fiber.NewError(fiber.StatusInternalServerError, "failed to retreive user data.")
 	}
 
@@ -161,7 +161,7 @@ func (h *Handler) AssignMediaToGroup(c *fiber.Ctx) error {
 
 	err = h.Store.AssignMediaToGroup(c.Context(), arg)
 	if err != nil {
-		log.Println(util.RouteCustomError(err, c.Path()))
+		util.RouteCustomError(err, c.Path())
 
 		return fiber.NewError(fiber.StatusInternalServerError, "failed to assign media to a group")
 	}
@@ -186,7 +186,7 @@ func (h *Handler) GetCurrentUserMedia(c *fiber.Ctx) error {
 			return fiber.NewError(fiber.StatusNotFound, "user not found")
 		}
 
-		log.Println(util.RouteCustomError(err, c.Path()))
+		util.RouteCustomError(err, c.Path())
 		return fiber.NewError(fiber.StatusInternalServerError, "failed to retreive user data.")
 	}
 
@@ -194,7 +194,7 @@ func (h *Handler) GetCurrentUserMedia(c *fiber.Ctx) error {
 	if groupQuery != "" {
 		groupID, err := uuid.Parse(groupQuery)
 		if err != nil {
-			log.Println(util.RouteCustomError(err, c.Path()))
+			util.RouteCustomError(err, c.Path())
 			return fiber.NewError(fiber.StatusInternalServerError, "invalid group id.")
 		}
 
@@ -211,7 +211,7 @@ func (h *Handler) GetCurrentUserMedia(c *fiber.Ctx) error {
 		})
 
 		if err != nil {
-			log.Println(util.RouteCustomError(err, c.Path()))
+			util.RouteCustomError(err, c.Path())
 			return fiber.NewError(fiber.StatusInternalServerError, "failed to retreive media data.")
 		}
 
@@ -224,7 +224,7 @@ func (h *Handler) GetCurrentUserMedia(c *fiber.Ctx) error {
 	})
 
 	if err != nil {
-		log.Println(util.RouteCustomError(err, c.Path()))
+		util.RouteCustomError(err, c.Path())
 		return fiber.NewError(fiber.StatusInternalServerError, "failed to retreive media data.")
 	}
 
@@ -248,7 +248,7 @@ func (h *Handler) DownloadMedia(c *fiber.Ctx) error {
 			return fiber.NewError(fiber.StatusNotFound, "user not found")
 		}
 
-		log.Println(util.RouteCustomError(err, c.Path()))
+		util.RouteCustomError(err, c.Path())
 		return fiber.NewError(fiber.StatusInternalServerError, "failed to retreive user data.")
 	}
 
@@ -267,7 +267,7 @@ func (h *Handler) DownloadMedia(c *fiber.Ctx) error {
 			return fiber.NewError(fiber.StatusNotFound, "media not found")
 		}
 
-		log.Println(util.RouteCustomError(err, c.Path()))
+		util.RouteCustomError(err, c.Path())
 		return fiber.NewError(fiber.StatusInternalServerError, "failed to retreive media.")
 	}
 

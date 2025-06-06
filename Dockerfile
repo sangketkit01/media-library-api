@@ -14,7 +14,11 @@ RUN go build -o app cmd/api/main.go
 FROM alpine:3.22
 COPY --from=builder /app/app .
 COPY --from=builder /app/.env.production .
-COPY --from=builder /app/uploads .
 
-EXPOSE 8090
+RUN mkdir -p migrations
+COPY --from=builder /app/internal/db/migration/* /migrations
+
+RUN mkdir -p uploads
+
+EXPOSE 8099
 CMD [ "./app" ]

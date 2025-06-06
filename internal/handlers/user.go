@@ -186,7 +186,7 @@ func (h *Handler) GetCurrentUser(c *fiber.Ctx) error {
 			return fiber.NewError(fiber.StatusForbidden, "user not found")
 		}
 
-		log.Println(util.RouteCustomError(err, c.Path()))
+		util.RouteCustomError(err, c.Path())
 		return fiber.NewError(fiber.StatusInternalServerError, "cannot get server")
 	}
 

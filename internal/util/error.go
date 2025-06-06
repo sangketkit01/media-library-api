@@ -1,6 +1,8 @@
 package util
 
-import "fmt"
+import (
+	"log"
+)
 
 const (
 	NotNullViolationErrCode    = "23502"
@@ -8,6 +10,6 @@ const (
 	UniqueViolationErrCode     = "23505"
 )
 
-func RouteCustomError(err error, path string) string {
-	return fmt.Sprintf("[%s] Error: %v", path, err)
+func RouteCustomError(err error, path string) {
+	log.Printf("[%s] Error: %v\n", path, err)
 }

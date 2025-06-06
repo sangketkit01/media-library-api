@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"log"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -52,7 +51,7 @@ func (h *Handler) CreateGroup(c *fiber.Ctx) error {
 			return fiber.NewError(fiber.StatusNotFound, "user not found")
 		}
 
-		log.Println(util.RouteCustomError(err, c.Path()))
+		util.RouteCustomError(err, c.Path())
 		return fiber.NewError(fiber.StatusInternalServerError, "failed to retreive user data.")
 	}
 
@@ -69,7 +68,7 @@ func (h *Handler) CreateGroup(c *fiber.Ctx) error {
 
 	if err != nil {
 
-		log.Println(util.RouteCustomError(err, c.Path()))
+		util.RouteCustomError(err, c.Path())
 
 		return fiber.NewError(fiber.StatusInternalServerError, "failed to create group.")
 	}
