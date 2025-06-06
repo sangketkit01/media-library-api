@@ -23,12 +23,14 @@ type Querier interface {
 	DeleteSession(ctx context.Context, id pgtype.UUID) error
 	GetGroupByID(ctx context.Context, id pgtype.UUID) (MediaGroup, error)
 	GetMediaFileByID(ctx context.Context, id pgtype.UUID) (MediaFile, error)
+	GetReusableSessionByUserID(ctx context.Context, arg GetReusableSessionByUserIDParams) (Session, error)
 	GetSession(ctx context.Context, id pgtype.UUID) (Session, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 	ListGroupsByUser(ctx context.Context, userID pgtype.UUID) ([]MediaGroup, error)
 	ListMediaByGroup(ctx context.Context, arg ListMediaByGroupParams) ([]MediaFile, error)
 	ListMediaByUser(ctx context.Context, userID pgtype.UUID) ([]MediaFile, error)
+	UpdateSessionTokenAndExpiry(ctx context.Context, arg UpdateSessionTokenAndExpiryParams) error
 }
 
 var _ Querier = (*Queries)(nil)

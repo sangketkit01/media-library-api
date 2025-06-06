@@ -70,7 +70,7 @@ type LoginUserRequest struct {
 }
 
 type LoginUserResponse struct {
-	Token                 string    `json:"token"`
+	AccessToken           string    `json:"access_token"`
 	RefreshToken          string    `json:"refresh_token"`
 	SessionID             uuid.UUID `json:"session_id"`
 	TokenIssuedAt         time.Time `json:"token_issued_at"`
@@ -80,7 +80,6 @@ type LoginUserResponse struct {
 	Email                 string    `json:"email"`
 	CreatedAt             time.Time `json:"created_at"`
 }
-
 func (h *Handler) LoginUser(c *fiber.Ctx) error {
 	var req LoginUserRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -97,7 +96,6 @@ func (h *Handler) LoginUser(c *fiber.Ctx) error {
 		if err == pgx.ErrNoRows {
 			return fiber.NewError(fiber.StatusNotFound, "invalid email credential.")
 		}
-
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
@@ -105,61 +103,102 @@ func (h *Handler) LoginUser(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid password credential")
 	}
 
-	sessionId, _ := uuid.NewUUID()
-
-	accessToken, accessPayload, err := h.tokenMaker.CreateToken(user.ID.Bytes, sessionId,h.Config.AccessTokenDuration)
-	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
-	}
-
-	refreshToken, refreshPayloay, err := h.tokenMaker.CreateToken(user.ID.Bytes, sessionId,h.Config.RefreshTokenDuration)
-	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
-	}
-
-	arg := db.CreateSessionParams{
-		RefreshToken: refreshToken,
-
-		ID: pgtype.UUID{
-			Bytes: sessionId,
-			Valid: true,
-		},
-
-		UserID: pgtype.UUID{
-			Bytes: accessPayload.ID,
-			Valid: true,
-		},
-
-		UserAgent: pgtype.Text{
-			String: c.Get("User-Agent"),
-			Valid: true,
-		},
-
-		ClientIp: pgtype.Text{
-			String: c.IP(),
-			Valid: true,
-		},
-
-		IsBlocked: pgtype.Bool{
-			Bool: false,
-			Valid: true,
-		},
-
+	session, err := h.Store.GetReusableSessionByUserID(c.Context(), db.GetReusableSessionByUserIDParams{
+		UserID: user.ID,
 		ExpiresAt: pgtype.Timestamptz{
-			Time: refreshPayloay.ExpiredAt,
+			Time: time.Now(),
 			Valid: true,
 		},
-	}
+	})
 
-	_, err = h.Store.CreateSession(c.Context(), arg)
+	var sessionID uuid.UUID
+	var accessToken, refreshToken string
+	var accessPayload, refreshPayload *token.Payload
+
+	if err == nil && !session.IsBlocked.Bool && session.ExpiresAt.Time.After(time.Now()) {
+		sessionID = session.ID.Bytes
+
+		accessToken, accessPayload, err = h.tokenMaker.CreateToken(user.ID.Bytes, sessionID, h.Config.AccessTokenDuration)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		}
+
+		refreshToken, refreshPayload, err = h.tokenMaker.CreateToken(user.ID.Bytes, sessionID, h.Config.RefreshTokenDuration)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		}
+
+		err = h.Store.UpdateSessionTokenAndExpiry(c.Context(), db.UpdateSessionTokenAndExpiryParams{
+			RefreshToken: refreshToken,
+
+			ID: pgtype.UUID{
+				Bytes: sessionID,
+				Valid: true,
+			},
+
+			ExpiresAt: pgtype.Timestamptz{
+				Time: refreshPayload.ExpiredAt,
+				Valid: true,
+			},
+		})
+
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		}
+	} else {
+		sessionID, _ = uuid.NewUUID()
+
+		accessToken, accessPayload, err = h.tokenMaker.CreateToken(user.ID.Bytes, sessionID, h.Config.AccessTokenDuration)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		}
+
+		refreshToken, refreshPayload, err = h.tokenMaker.CreateToken(user.ID.Bytes, sessionID, h.Config.RefreshTokenDuration)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		}
+
+		arg := db.CreateSessionParams{
+			ID: pgtype.UUID{
+				Bytes: sessionID,
+				Valid: true,
+			},
+			UserID: pgtype.UUID{
+				Bytes: user.ID.Bytes,
+				Valid: true,
+			},
+			RefreshToken: refreshToken,
+			UserAgent: pgtype.Text{
+				String: c.Get("User-Agent"),
+				Valid:  true,
+			},
+			ClientIp: pgtype.Text{
+				String: c.IP(),
+				Valid:  true,
+			},
+			IsBlocked: pgtype.Bool{
+				Bool:  false,
+				Valid: true,
+			},
+			ExpiresAt: pgtype.Timestamptz{
+				Time:  refreshPayload.ExpiredAt,
+				Valid: true,
+			},
+		}
+
+		_, err = h.Store.CreateSession(c.Context(), arg)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		}
+	}
 
 	response := LoginUserResponse{
-		Token:                 accessToken,
+		AccessToken:           accessToken,
 		RefreshToken:          refreshToken,
-		SessionID:             accessPayload.SessionID,
+		SessionID:             sessionID,
 		TokenIssuedAt:         accessPayload.IssuedAt,
 		TokenExpiredAt:        accessPayload.ExpiredAt,
-		RefreshTokenExpiredAt: refreshPayloay.ExpiredAt,
+		RefreshTokenExpiredAt: refreshPayload.ExpiredAt,
 		ID:                    user.ID.Bytes,
 		Email:                 user.Email,
 		CreatedAt:             user.CreatedAt.Time,
@@ -167,6 +206,7 @@ func (h *Handler) LoginUser(c *fiber.Ctx) error {
 
 	return c.JSON(response)
 }
+
 
 func (h *Handler) GetCurrentUser(c *fiber.Ctx) error {
 	p := c.Locals("payload")
@@ -194,23 +234,22 @@ func (h *Handler) GetCurrentUser(c *fiber.Ctx) error {
 }
 
 func (h *Handler) LogoutUser(c *fiber.Ctx) error {
-    p := c.Locals("payload")
-    payload, ok := p.(*token.Payload)
-    if !ok {
-        return fiber.NewError(fiber.StatusUnauthorized, "invalid payload")
-    }
+	p := c.Locals("payload")
+	payload, ok := p.(*token.Payload)
+	if !ok {
+		return fiber.NewError(fiber.StatusUnauthorized, "invalid payload")
+	}
 
-    err := h.Store.BlockSessionByID(c.Context(), pgtype.UUID{
+	err := h.Store.BlockSessionByID(c.Context(), pgtype.UUID{
 		Bytes: payload.SessionID,
 		Valid: true,
 	})
-    if err != nil {
+	if err != nil {
 		log.Println(err, payload.SessionID)
-        return fiber.NewError(fiber.StatusInternalServerError, "cannot block session")
-    }
+		return fiber.NewError(fiber.StatusInternalServerError, "cannot block session")
+	}
 
-    return c.JSON(fiber.Map{
-        "message": "logged out successfully",
-    })
+	return c.JSON(fiber.Map{
+		"message": "logged out successfully",
+	})
 }
-

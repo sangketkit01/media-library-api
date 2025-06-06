@@ -75,6 +75,34 @@ func (q *Queries) DeleteSession(ctx context.Context, id pgtype.UUID) error {
 	return err
 }
 
+const getReusableSessionByUserID = `-- name: GetReusableSessionByUserID :one
+SELECT id, user_id, refresh_token, user_agent, client_ip, is_blocked, expires_at, created_at FROM sessions
+WHERE user_id = $1 AND is_blocked = false AND expires_at > $2
+ORDER BY expires_at DESC
+LIMIT 1
+`
+
+type GetReusableSessionByUserIDParams struct {
+	UserID    pgtype.UUID        `json:"user_id"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+}
+
+func (q *Queries) GetReusableSessionByUserID(ctx context.Context, arg GetReusableSessionByUserIDParams) (Session, error) {
+	row := q.db.QueryRow(ctx, getReusableSessionByUserID, arg.UserID, arg.ExpiresAt)
+	var i Session
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.RefreshToken,
+		&i.UserAgent,
+		&i.ClientIp,
+		&i.IsBlocked,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getSession = `-- name: GetSession :one
 SELECT id, user_id, refresh_token, user_agent, client_ip, is_blocked, expires_at, created_at FROM sessions WHERE id = $1
 `
@@ -93,4 +121,21 @@ func (q *Queries) GetSession(ctx context.Context, id pgtype.UUID) (Session, erro
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const updateSessionTokenAndExpiry = `-- name: UpdateSessionTokenAndExpiry :exec
+UPDATE sessions
+SET refresh_token = $1, expires_at = $2
+WHERE id = $3
+`
+
+type UpdateSessionTokenAndExpiryParams struct {
+	RefreshToken string             `json:"refresh_token"`
+	ExpiresAt    pgtype.Timestamptz `json:"expires_at"`
+	ID           pgtype.UUID        `json:"id"`
+}
+
+func (q *Queries) UpdateSessionTokenAndExpiry(ctx context.Context, arg UpdateSessionTokenAndExpiryParams) error {
+	_, err := q.db.Exec(ctx, updateSessionTokenAndExpiry, arg.RefreshToken, arg.ExpiresAt, arg.ID)
+	return err
 }
