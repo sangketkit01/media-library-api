@@ -14,6 +14,7 @@ RUN go build -o app cmd/api/main.go
 FROM alpine:3.22
 COPY --from=builder /app/app .
 COPY --from=builder /app/.env.production .
+COPY --from=builder /app/uploads .
 
 EXPOSE 8090
 CMD [ "./app" ]

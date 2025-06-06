@@ -54,7 +54,7 @@ func (m *Middleware) LoggerMiddleware() fiber.Handler {
 		duration := time.Since(start)
 		status := c.Response().StatusCode()
 
-		log.Printf("[%d] %s %s - %v\n", status, c.Method(), c.Path(), duration)
+		log.Printf("%s [%d] %s %s - %v\n", c.IP(), status, c.Method(), c.Path(), duration)
 
 		return err
 	}

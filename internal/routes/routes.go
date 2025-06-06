@@ -8,7 +8,7 @@ import (
 )
 
 type Route struct{
-	App *fiber.App
+	Router *fiber.App
 	Middleware *middleware.Middleware 
 	Handler *handlers.Handler
 }
@@ -42,7 +42,7 @@ func NewRoute(middleware *middleware.Middleware, handler *handlers.Handler) *Rou
 	authRouter.Get("/media/:id/download", handler.DownloadMedia)
 
 	return &Route{
-		App: router,
+		Router: router,
 		Middleware: middleware,
 		Handler: handler,
 	}

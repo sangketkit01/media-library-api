@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"log"
 	"mime"
+	"mime/multipart"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -27,7 +29,24 @@ func (h *Handler) UploadFile(c *fiber.Ctx) error {
 
 	contentType := c.Get("Content-Type")
 	if !strings.HasPrefix(contentType, "multipart/form-data") {
-		return fiber.NewError(fiber.StatusBadRequest, "we only accepted multipart/form-data")
+		return fiber.NewError(fiber.StatusBadRequest, "we only accept multipart/form-data")
+	}
+
+	user, err := h.Store.GetUserByID(c.Context(), pgtype.UUID{
+		Bytes: payload.ID,
+		Valid: true,
+	})
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return fiber.NewError(fiber.StatusNotFound, "user not found")
+		}
+		log.Println(util.RouteCustomError(err, c.Path()))
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to retrieve user")
+	}
+
+	userFolder := filepath.Join("../../uploads", user.ID.String())
+	if err := os.MkdirAll(userFolder, os.ModePerm); err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to create user folder")
 	}
 
 	form, err := c.MultipartForm()
@@ -36,56 +55,62 @@ func (h *Handler) UploadFile(c *fiber.Ctx) error {
 	}
 
 	files := form.File["files"]
-
-	user, err := h.Store.GetUserByID(c.Context(), pgtype.UUID{
-		Bytes: payload.ID,
-		Valid: true,
-	})
-
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return fiber.NewError(fiber.StatusNotFound, "user not found")
-		}
-
-		log.Println(util.RouteCustomError(err, c.Path()))
-		return fiber.NewError(fiber.StatusInternalServerError, "failed to retreive user data.")
+	if len(files) > 20 {
+		return fiber.NewError(fiber.StatusBadRequest, "too many files (max: 20)")
 	}
 
-	userFolder := filepath.Join("../../uploads", user.ID.String())
-
-	if err := os.MkdirAll(userFolder, os.ModePerm); err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, "failed to create user folder.")
-	}
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var saveErrors []string
 
 	for _, file := range files {
-		uniqueName := fmt.Sprintf("%d_%s", time.Now().UnixNano(), file.Filename)
-		dst := filepath.Join(userFolder, uniqueName)
+		if file.Size > 100<<20 { 
+			saveErrors = append(saveErrors, fmt.Sprintf("file %s too large", file.Filename))
+			continue
+		}
 
-		if err := c.SaveFile(file, dst); err != nil {
-			log.Println(util.RouteCustomError(err, c.Path()))
-		} else {
+		wg.Add(1)
+		go func(file *multipart.FileHeader) {
+			defer wg.Done()
+
+			uniqueName := fmt.Sprintf("%d_%s", time.Now().UnixNano(), file.Filename)
+			dst := filepath.Join(userFolder, uniqueName)
+
+			if err := c.SaveFile(file, dst); err != nil {
+				mu.Lock()
+				saveErrors = append(saveErrors, fmt.Sprintf("failed to save %s: %v", file.Filename, err))
+				mu.Unlock()
+				return
+			}
+
 			ext := filepath.Ext(file.Filename)
 			mimeTypeByExtension := mime.TypeByExtension(ext)
-
-			log.Println(mimeTypeByExtension)
 
 			arg := db.CreateMediaFileParams{
 				UserID: pgtype.UUID{
 					Bytes: user.ID.Bytes,
 					Valid: true,
 				},
-
 				Filename: uniqueName,
 				FileType: mimeTypeByExtension,
 				Size:     file.Size,
 			}
 
-			_, err := h.Store.CreateMediaFile(c.Context(), arg)
-
-			if err != nil {
-				log.Println(util.RouteCustomError(err, c.Path()))
+			if _, err := h.Store.CreateMediaFile(c.Context(), arg); err != nil {
+				mu.Lock()
+				saveErrors = append(saveErrors, fmt.Sprintf("DB save error for %s: %v", file.Filename, err))
+				mu.Unlock()
 			}
-		}
+		}(file)
+	}
+
+	wg.Wait()
+
+	if len(saveErrors) > 0 {
+		return c.Status(fiber.StatusPartialContent).JSON(fiber.Map{
+			"message": "Some files failed to upload",
+			"errors":  saveErrors,
+		})
 	}
 
 	return c.JSON(fiber.Map{"message": "Saved all files successfully!"})
@@ -246,7 +271,7 @@ func (h *Handler) DownloadMedia(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "failed to retreive media.")
 	}
 
-	if media.UserID != user.ID{
+	if media.UserID != user.ID {
 		return fiber.NewError(fiber.StatusForbidden, "You are not allowed to download other's file")
 	}
 

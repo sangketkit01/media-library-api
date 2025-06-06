@@ -21,7 +21,7 @@ type App struct {
 	handler    *handlers.Handler
 	config     *config.Config
 	tokenMaker token.Maker
-	router     *routes.Route
+	routes     *routes.Route
 }
 
 func init() {
@@ -73,10 +73,10 @@ func main() {
 		config:     config,
 		tokenMaker: tokenMaker,
 		handler:    handler,
-		router:     router,
+		routes:     router,
 	}
 
-	err = app.router.App.Listen(fmt.Sprintf(":%s", webPort))
+	err = app.routes.Router.Listen(fmt.Sprintf(":%s", webPort))
 	if err != nil{
 		log.Panic(err)
 	}
